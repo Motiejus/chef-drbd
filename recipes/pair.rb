@@ -25,5 +25,4 @@ include_recipe "drbd"
 drbd_pair "xpair" do
     remote_host "srv2.vm"
     disk "/dev/vg/yadda"
-    provider "drbd_drbd83"
 end
