@@ -6,7 +6,7 @@ action :create do
     remote_ip = new_resource.remote_ip || remote.ipaddress
     local_ip = new_resource.local_ip || node.ipaddress
 
-    template "/etc/drbd.d/#{resource}.res" do
+    template "/etc/drbd.d/#{new_resource.res_name}.res" do
         source "res.erb"
         variables(
             :device => new_resource.device,
