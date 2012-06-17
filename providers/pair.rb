@@ -28,36 +28,40 @@ action :create do
 end
 
 action :bootstrap do
-    #def cstate(what) do
-    #    return "drbdadm sh-status #{@res} | grep ^_cstate=#{what}"
-    #end
-
     res = new_resource.res_name
 
     execute "drbdadm -- --force create-md #{res}" do
         only_if "drbdadm sh-status #{res} | grep ^_cstate=Unconfigured"
-        #only_if cstate "Unconfigured"
     end
 
     if new_resource.master then
+
         execute "drbdadm up #{res}" do
             only_if "drbdadm sh-status #{res} | grep ^_cstate=Unconfigured"
-            #only_if cstate "Unconfigured"
+            notifies :run, "execute[become-primary]", :immediately
         end
-        execute "drbdadm -- --overwrite-data-of-peer primary #{res}" do
+
+        execute "become-primary" do
+            command "drbdadm -- --overwrite-data-of-peer primary #{res}"
             only_if "drbdadm sh-status #{res} | grep ^_cstate=WFConnection"
-            #only_if cstate "WFConnection"
+            action :nothing
         end
+
     else
+
         execute "drbdadm attach #{res}" do
             only_if "drbdadm sh-status #{res} | grep ^_cstate=Unconfigured"
-            #only_if cstate "Unconfigured"
+            notifies :run, "execute[connect-and-discard-data]", :immediately
         end
-        execute "drbdadm -- --discard-my-data connect #{res}" do
+
+        execute "connect-and-discard-data" do
+            command "drbdadm -- --discard-my-data connect #{res}"
             only_if "drbdadm sh-status #{res} | grep ^_cstate=StandAlone"
-            #only_if cstate "StandAlone"
+            action :nothing
         end
+
     end
+
 end
 
 
