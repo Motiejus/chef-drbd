@@ -22,8 +22,8 @@ require 'chef/shell_out'
 
 include_recipe "drbd"
 
-if node.key? :drbd and node[:drbd].key? :devices then
-    node[:drbd][:devices].each do |name, data|
+if node.key? :drbd and node[:drbd].key? :resources then
+    node[:drbd][:resources].each do |name, data|
         drbd_pair name do
             action [:create, :bootstrap]
 
