@@ -1,30 +1,13 @@
 Description
 ===========
 
-*NOTE*: This is a fork of the [Opscode DRBD
-cookbook](https://github.com/opscode/cookbooks/tree/master/drbd) that adds
-additional configuration parameters (see the attributes below).
-
 Installs and configures the Distributed Replicated Block Device (DRBD) service
-for mirroring block devices between a pair of hosts. Right now it simply works
-in pairs, multiple hosts could be supported with a few small changes.
-
-The `drbd` cookbook does not partition drives. It will format partitions given
-a filesystem type, but it does not explicitly depend on the `xfs` cookbook if
-you want that type of filesystem, but you can put it in your run list and set
-the node['drbd']['fs_type'] to 'xfs' or 'ext4' or whatever.
-
-*side note: you can list your partitions with:* `fdisk -l`
-
-Requirements
-============
+for mirroring block devices between pairs of hosts.
 
 Platform
 --------
 
-Tested with Ubuntu 10.04 and 10.10. You must have the 'linux-server' package
-and 'linux-headers-server' kernel installed to properly support the drbd
-module.
+Tested on Debian 6.03 with DRBD 8.3.
 
 Recipes
 =======
@@ -32,63 +15,59 @@ Recipes
 default
 -------
 
-Installs drbd but does no configuration.
+Installs `drbd` and, if there is `node[:drbd]`, creates
+`/etc/drbd.d/global_common.conf` with specified (or default) options.
 
 pair
 ----
 
-Given a filesystem and a partner host, configures block replication between the
-hosts. The master will claim the primary, format the filesystem and mount the
-partition. The slave will simply mirror without mounting. **It currently takes
-2 chef-client runs to ensure the pair is synced properly.**
+Can configure a number of pairs of resources across number of hosts. Configures
+each resource:
+
+* writes `/etc/drbd.d/<resource>.res`
+* sets up primary:
+
+        drbdadm -- --force create-md res
+        drbdadm up res
+        drbdadm -- --overwrite-data-of-peer primary res
+
+* sets up secondary:
+
+        drbdadm create-md res
+        drbdadm attach res
+        drbdadm -- --discard-my-data connect pair
+
+For more details how it is done and what checks are peformed, consult
+`providers/pair.rb`.
 
 Attributes
 ==========
-The required attributes are
 
-* `node['drbd']['resource']` - The name for the DRBD resource. Defaults to "pair"
-* `node['drbd']['internal_ip']` - Host IP Address. You may provide a value for
-   this attribute if your host has multiple addresses, and you wish to specify
-   which one is used. Otherwise, Chef will use the IP address of the node
-   (`node.ipaddress`).
-* `node['drbd']['remote_ip']` - Remote host IP Address. Similar to
-  `internal_ip`, you may specify this if you want to control which IP address
-  is used by the remote host. The default value is that of the node
-  (`node.ipaddress`)
-* `node['drbd']['remote_host']` - Remote host to pair with.
-* `node['drbd']['disk']` - Disk partition to mirror.
-* `node['drbd']['mount']` - Mount point to mirror.
-* `node['drbd']['fs_type']` - Disk format for the mirrored disk, defaults to
-   `ext3`.
-* `node['drbd']['master']` - Whether this node is master between the pair,
-   defaults to `false`.
-* `node['drbd']['usage_count']` - Whether or not to participate in usage
-   statistics. Defaults to "yes".
-* `node['drbd']['protocol']` - The synchronization protocol to use. Defaults to
-   "C". For more information, see the docs for
-   [DRBD Replication Modes](http://www.drbd.org/users-guide-emb/s-replication-protocols.html)
-* `node['drbd']['sync_rate']` - That rate at which to sync. Defaults to "40M"
+Attributes for global configuration are:
 
-Roles
-=====
+* `node[:drbd][:usage_count]`. `yes` or `no` or `ask`. Default `no`.
+* `node[:drbd][:protocol]`. Synchronization protocol to use. Default is `C`. For
+  more information, see the docs for [DRBD Replication
+  Modes](http://www.drbd.org/users-guide-emb/s-replication-protocols.html).
+* `node[:drbd][:sync_rate]`. Default `40M`.
 
-There are a pair of example roles `drbd-pair.rb` and `drbd-pair-master.rb` with
-the cookbook source.
+Every resource should be in `node[:drbd][:resource]`. Take `pair` as an
+example. Then the following are written:
 
-License and Author
-==================
+* `node[:drbd][:resources][:pair][:disk]` - required. Disk for replication.
+* `node[:drbd][:resources][:pair][:remote_host]` - FQDN of pair.
+* `node[:drbd][:resources][:pair][:device]` - default `/dev/drbd0`.
+* `node[:drbd][:resources][:pair][:master]` - default `false`. Controls which
+   node initializes the DRBD device.
 
-Author: Matt Ray (<matt@opscode.com>)
+* `node[:drbd][:resources][:pair][:local_ip]` - default is node.ipaddress. Set
+   this if node has another IP.
+* `node[:drbd][:resources][:pair][:local_port]` - default is 7789.
+* `node[:drbd][:resources][:pair][:remote_ip]` - default is remote.ipaddress.
+* `node[:drbd][:resources][:pair][:remote_port]` - default is 7789.
 
-Copyright 2011, Opscode, Inc.
+TODO
+====
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software distributed
-under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
-CONDITIONS OF ANY KIND, either express or implied.  See the License for the
-specific language governing permissions and limitations under the License.
+* Make dynamic sync_rate default.
+* Improve checks in destructive DRBD commands
