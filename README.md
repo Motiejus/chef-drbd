@@ -7,7 +7,7 @@ for mirroring block devices between pairs of hosts.
 Platform
 --------
 
-Tested on Debian 6.03 with DRBD 8.3.
+Tested on Debian 6.0.5 with DRBD 8.3.
 
 Recipes
 =======
