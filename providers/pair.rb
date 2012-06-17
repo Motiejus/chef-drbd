@@ -25,15 +25,50 @@ action :create do
         action :create
     end
 
-    template "/etc/drbd.d/global_common.conf" do
-        source "global_common.conf.erb"
-        variables(
-            :usage_count => new_resource.usage_count,
-            :protocol => new_resource.protocol,
-            :rate => new_resource.sync_rate
-        )
-        owner "root"
-        group "root"
-        action :create
+end
+
+action :bootstrap do
+    #def cstate(what) do
+    #    return "drbdadm sh-status #{@res} | grep ^_cstate=#{what}"
+    #end
+
+    res = new_resource.res_name
+
+    execute "drbdadm -- --force create-md #{res}" do
+        only_if "drbdadm sh-status #{res} | grep ^_cstate=Unconfigured"
+        #only_if cstate "Unconfigured"
+    end
+
+    if new_resource.master then
+        execute "drbdadm up #{res}" do
+            only_if "drbdadm sh-status #{res} | grep ^_cstate=Unconfigured"
+            #only_if cstate "Unconfigured"
+        end
+        execute "drbdadm -- --overwrite-data-of-peer primary #{res}" do
+            only_if "drbdadm sh-status #{res} | grep ^_cstate=WFConnection"
+            #only_if cstate "WFConnection"
+        end
+    else
+        execute "drbdadm attach #{res}" do
+            only_if "drbdadm sh-status #{res} | grep ^_cstate=Unconfigured"
+            #only_if cstate "Unconfigured"
+        end
+        execute "drbdadm -- --discard-my-data connect #{res}" do
+            only_if "drbdadm sh-status #{res} | grep ^_cstate=StandAlone"
+            #only_if cstate "StandAlone"
+        end
     end
 end
+
+
+#Primary:
+#drbdadm -- --force create-md res
+#drbdadm up res # State: WFConnection
+#drbdadm -- --overwrite-data-of-peer primary res
+#
+#Now, wait indefinitely.
+#
+#Secondary:
+#drbdadm create-md res
+#drbdadm attach res
+#drbdadm -- --discard-my-data connect pair

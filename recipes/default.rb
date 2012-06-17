@@ -24,6 +24,11 @@ package "drbd8-utils" do
   action :install
 end
 
+drbd "setup global configuration" do
+    # set basic config up if we have anything in the node
+    action :setup if node[:drbd]
+end
+
 service "drbd" do
   supports(
     :restart => true,

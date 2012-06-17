@@ -22,7 +22,22 @@ require 'chef/shell_out'
 
 include_recipe "drbd"
 
-drbd_pair "xpair" do
-    remote_host "srv2.vm"
-    disk "/dev/vg/yadda"
+if node.key? :drbd and node[:drbd].key? :devices then
+    node[:drbd][:devices].each do |name, data|
+        drbd_pair name do
+            action [:create, :bootstrap]
+
+            disk data[:disk]
+            remote_host data[:remote_host]
+
+            device data[:device] if data.key? :device
+            master data[:master] if data.key? :master
+
+            local_ip data[:local_ip] if data.key? :local_ip
+            local_port data[:local_port] if data.key? :local_port
+
+            remote_ip data[:remote_ip] if data.key? :remote_ip
+            remote_port data[:remote_port] if data.key? :remote_port
+        end
+    end
 end
